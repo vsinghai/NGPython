@@ -12,34 +12,7 @@ class POI:
 
 points_of_interest = []
 
-# construct the argument parse and parse the arguments
-ap = argparse.ArgumentParser()
-ap.add_argument("-l", "--list", required=True,
-	help="path to input image")
-ap.add_argument("-c", "--confidence", type=float, default=0.2,
-	help="minimum probability to filter weak detections")
-args = vars(ap.parse_args())
-
-images = [cv2.imread(x) for x in args["list"].split(",")]
-
-# initialize the list of class labels MobileNet SSD was trained to
-# detect, then generate a set of bounding box colors for each class
-CLASSES = ["background", "aeroplane", "bicycle", "bird", "boat",
-	"bottle", "bus", "car", "cat", "chair", "cow", "diningtable",
-	"dog", "horse", "motorbike", "person", "pottedplant", "sheep",
-	"sofa", "train", "tvmonitor"]
-COLORS = np.random.uniform(0, 255, size=(len(CLASSES), 3))
-
-# load our serialized model from disk
-print("[INFO] loading model...")
-net = cv2.dnn.readNetFromCaffe("MobileNetSSD_deploy.prototxt.txt", "MobileNetSSD_deploy.caffemodel")
-
-# load the input image and construct an input blob for the image
-# by resizing to a fixed 300x300 pixels and then normalizing it
-# (note: normalization is done via the authors of the MobileNet SSD
-# implementation)
-
-for image in images:
+def analyzeFrame(image):
 	(h, w) = image.shape[:2]
 	blob = cv2.dnn.blobFromImage(cv2.resize(image, (300, 300)), 0.007843, (300, 300), 127.5)
 
@@ -70,7 +43,7 @@ for image in images:
 			box = detections[0, 0, i, 3:7] * np.array([w, h, w, h])
 			(startX, startY, endX, endY) = box.astype("int")
 
-			point = ((startX - startY) / 2, (endX - endY) / 2)
+			point = ((endX - startX) / 2, (endY - startY) / 2)
 
 			# display the prediction
 			label = "Emergency vehicle at {}".format(point)
@@ -83,6 +56,42 @@ for image in images:
 
 	print("There were {} emergency vehicles in this picture.".format(count))
 
-	# show the output image
-	# cv2.imshow("Output", image)
-	# cv2.waitKey(0)
+# construct the argument parse and parse the arguments
+ap = argparse.ArgumentParser()
+ap.add_argument("-l", "--list", required=True,
+	help="path to input image")
+ap.add_argument("-c", "--confidence", type=float, default=0.2,
+	help="minimum probability to filter weak detections")
+args = vars(ap.parse_args())
+
+images = args["list"].split(",")
+
+# initialize the list of class labels MobileNet SSD was trained to
+# detect, then generate a set of bounding box colors for each class
+CLASSES = ["background", "aeroplane", "bicycle", "bird", "boat",
+	"bottle", "bus", "car", "cat", "chair", "cow", "diningtable",
+	"dog", "horse", "motorbike", "person", "pottedplant", "sheep",
+	"sofa", "train", "tvmonitor"]
+COLORS = np.random.uniform(0, 255, size=(len(CLASSES), 3))
+
+net = cv2.dnn.readNetFromCaffe("MobileNetSSD_deploy.prototxt.txt", "MobileNetSSD_deploy.caffemodel")
+
+# load the input image and construct an input blob for the image
+# by resizing to a fixed 300x300 pixels and then normalizing it
+# (note: normalization is done via the authors of the MobileNet SSD
+# implementation)
+
+for image in images:
+	ext = image.split(".")[1]
+
+	if ext == "bmp":
+		analyzeFrame(cv2.imread(image))
+	else if ext == "mp4":
+		vidcap = cv2.VideoCapture('big_buck_bunny_720p_5mb.mp4')
+		success,image = vidcap.read()
+		count = 0
+		while success:
+		  cv2.imwrite("frame%d.jpg" % count, image)     # save frame as JPEG file      
+		  success,image = vidcap.read()
+		  print('Read a new frame: ', success)
+		  count += 1
